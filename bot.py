@@ -69,8 +69,21 @@ def pass_test(message):
         (message.from_user.username,))
     question_id = cursor.fetchone()
     if question_id is None:
-        bot.send_message(message.chat.id, "Тест завершен!")
-        log(message, "Тест завершен!")
+        conn = sqlite3.connect(config.dbname)
+        cursor = conn.cursor()
+        conn.text_factory = str
+        cursor.execute(
+            "SELECT count(UserName) FROM Users_Answers WHERE  UserName = ?",
+            (message.from_user.username,))
+        count = cursor.fetchone()
+        cursor.execute(
+            "SELECT count(UserName) FROM Users_Answers WHERE  UserName = ? AND IsCorrect = 1",
+            (message.from_user.username,))
+        counter = cursor.fetchone()
+        answer = ("Тест завершен! Ты ответил на "+str(counter[0])+" из "+str(count[0])+" вопросов.")
+        bot.send_message(message.chat.id, answer)
+        log(message, answer)
+        conn.close()
         return None
     else:
         conn = sqlite3.connect(config.dbname)
@@ -78,10 +91,8 @@ def pass_test(message):
         conn.text_factory = str
         cursor.execute("SELECT id FROM Questions WHERE id not in (Select QuestionId from Users_Answers where UserName = ?) LIMIT 1", (message.from_user.username, ))
         question_id = cursor.fetchone()
-        print(question_id)
         cursor.execute("SELECT QuestionText FROM Questions WHERE id not in (Select QuestionId from Users_Answers where UserName = ?) LIMIT 1", (message.from_user.username, ))
         question_text = cursor.fetchone()
-        print(question_text)
         cursor.execute("SELECT RightAnswer FROM Questions WHERE id not in (Select QuestionId from Users_Answers where UserName = ?) LIMIT 1", (message.from_user.username, ))
         question_rightanswer = cursor.fetchone()
         cursor.execute("SELECT WrongAnswer1 FROM Questions WHERE id not in (Select QuestionId from Users_Answers where UserName = ?) LIMIT 1", (message.from_user.username, ))
@@ -175,6 +186,20 @@ def pass_test(message):
 def hide_markup(message):
     hide_markup = telebot.types.ReplyKeyboardRemove()
     bot.send_message(message.chat.id, '..', reply_markup=hide_markup)
+    return
+
+# обработка кнопки /help - произвольное скрытие маркапа
+@bot.message_handler(commands=['help'])
+def show_help(message):
+    answer = ''' 
+    Набери команду: 
+    /test, чтобы запустить тест по охране труда.
+    /del_results для удаления результатов теста
+    /hide для скрытия клавиатуры выбора ответов (баги)
+    /help для вызова подсказки'''
+    bot.send_message(message.chat.id, answer)
+    log(message, answer)
+    return
 
 
 # обработка команды /del_results - удаление результатов теста юзера
@@ -188,5 +213,6 @@ def delete_results(message):
     answer = "Результаты теста удалены."
     bot.send_message(message.chat.id, answer)
     log(message, answer)
+    return
 
 bot.polling(none_stop=True, interval=0)
