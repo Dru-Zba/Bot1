@@ -4,6 +4,7 @@ import config
 import shelve
 import random
 import time
+from pprint import pprint
 
 bot = telebot.TeleBot(config.token)
 
@@ -196,7 +197,8 @@ def show_help(message):
     /test, чтобы запустить тест по охране труда.
     /del_results для удаления результатов теста
     /hide для скрытия клавиатуры выбора ответов (баги)
-    /help для вызова подсказки'''
+    /help для вызова подсказки
+    /show_results для отображения результатов всех опросов'''
     bot.send_message(message.chat.id, answer)
     log(message, answer)
     return
@@ -211,6 +213,20 @@ def delete_results(message):
     cursor.execute("DELETE FROM Users_Answers WHERE UserName = ?", (message.from_user.username, ))
     conn.commit()
     answer = "Результаты теста удалены."
+    bot.send_message(message.chat.id, answer)
+    log(message, answer)
+    return
+
+# результаты по юзерам
+@bot.message_handler(commands=['show_results'])
+def delete_results(message):
+    conn = sqlite3.connect(config.dbname)
+    cursor = conn.cursor()
+    conn.text_factory = str
+    cursor.execute("Select UserName, count(isCorrect) From Users_Answers group by UserName")
+    answer = cursor.fetchall()
+    answer = ("Общее количесто правильных ответов:\n"+str(answer).replace("), ('", "\n").replace("[('", "").replace(")]", "").replace("'", "").replace(",", " ="))
+    conn.close()
     bot.send_message(message.chat.id, answer)
     log(message, answer)
     return
